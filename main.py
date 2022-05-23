@@ -24,16 +24,16 @@ task_urls = []
 geckodriver_path = '/usr/bin/geckodriver'
 
 
-proxies = []
-with open('proxy.txt', 'rt') as file:
-    for line in file:
-        proxies.append(line)
+# proxies = []
+# with open('proxy.txt', 'rt') as file:
+#     for line in file:
+#         proxies.append(line)
 
 
 def get_html(url, time_out=4):
     options = Options()
     options.add_argument(f'user-agent={UserAgent().random}')
-    options.add_argument('--headless')
+    # options.add_argument('--headless')
     driver = webdriver.Firefox(executable_path=geckodriver_path, options=options)
     try:
         driver.get(url=url)
