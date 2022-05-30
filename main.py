@@ -33,7 +33,7 @@ geckodriver_path = '/usr/bin/geckodriver'
 def get_html(url, time_out=4):
     options = Options()
     options.add_argument(f'user-agent={UserAgent().random}')
-    # options.add_argument('--headless')
+    options.add_argument('--headless')
     driver = webdriver.Firefox(executable_path=geckodriver_path, options=options)
     try:
         driver.get(url=url)
@@ -98,7 +98,7 @@ def save_project_first_data_to_db(datas):
                     continue
 
                 # new record to table job
-                sql_query = f"""INSERT INTO job(name, description, link) VALUES(\'{data['title'].replace("'", '')}\', \'{data['description'].replace("'", '')}\', \'{data['url']}\')"""
+                sql_query = f"""INSERT INTO job(name, description, link) VALUES(\'{data['title'].replace("'", '')}\', \'{data['description'].replace("'", '')}\', \'{data['url'].replace("'", '')}\')"""
                 cursor.execute(sql_query)
 
                 # get job id
@@ -437,6 +437,7 @@ def scrap():
 
 #                save_advanced_project_data_to_db(result)
                 bots.bot_send(result)
+                print('i was in bot_send')
 
             await asyncio.sleep(0.1)
 
@@ -444,8 +445,8 @@ def scrap():
     async def start_scrap():
         task1 = asyncio.create_task(scrap_search_page())
         task2 = asyncio.create_task(scrap_project_page())
-        task3 = asyncio.create_task(bots.send_messages())
-        await asyncio.gather(task1, task2, task3)
+#        task3 = asyncio.create_task(bots.send_messages())
+        await asyncio.gather(task1, task2)
 
 
     asyncio.run(start_scrap())
@@ -455,7 +456,7 @@ def scrap():
 def main():
     multiprocessing.Process(target=scrap).start()
     multiprocessing.Process(target=bots.bot_config).start()
-
+    multiprocessing.Process(target=bots.send_messages).start()
 
 if __name__ == '__main__':
     main()
