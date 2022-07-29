@@ -61,8 +61,8 @@ def get_html(url, time_out=4):
 #        finally:
 #            driver.close()
 #            driver.quit()
-    with open('html.html', 'wt') as file:
-        file.write(result)
+#    with open('html.html', 'wt') as file:
+#        file.write(result)
     return result
 
 
@@ -89,8 +89,8 @@ def save_project_first_data_to_db(datas):
             count_added_elements = 0
             for data in datas:
                 time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                with open('project.json', 'w') as file:
-                    json.dump(data, file, indent=2)
+#                with open('project.json', 'w') as file:
+#                    json.dump(data, file, indent=2)
                 # is job exists in db
                 sql_query = f"SELECT EXISTS(SELECT id FROM job WHERE link=\'{data['url']}\')"
                 cursor.execute(sql_query)
@@ -98,7 +98,7 @@ def save_project_first_data_to_db(datas):
                     continue
 
                 # new record to table job
-                sql_query = f"""INSERT INTO job(name, description, link) VALUES(\'{data['title'].replace("'", '')}\', \'{data['description'].replace("'", '')}\', \'{data['url'].replace("'", '')}\')"""
+                sql_query = f"""INSERT INTO job(name, description, link) VALUES(\'{data['title'].replace("'", '').replace(";", "")}\', \'{data['description'].replace("'", '').replace(";", "")}\', \'{data['url'].replace("'", '').replace(";", "")}\')"""
                 cursor.execute(sql_query)
 
                 # get job id
@@ -136,7 +136,7 @@ def save_project_first_data_to_db(datas):
                     sql_query = f"INSERT INTO meta_job(id_job, meta_key, meta_value) VALUES({data['id']}, 'experience', '{data['experience'].lower()}')"
                     cursor.execute(sql_query)
         connection.commit()
-        print('{} of {} was added'.format(count_added_elements, count_getted_elements))
+#        print('{} of {} was added'.format(count_added_elements, count_getted_elements))
 
 
 def scrap():
@@ -144,8 +144,8 @@ def scrap():
 
     async def scrap_search_page():
         while True:
-            url = 'https://www.upwork.com/nx/jobs/search/?sort=recency&per_page=50'
-            print('Search page in progress')
+            url = 'https://www.upwork.com/nx/jobs/search/?sort=recency&per_page=10'
+ #           print('Search page in progress')
 
             html = get_html(url=url, time_out=8)
             soup = BeautifulSoup(html, 'lxml')
@@ -175,7 +175,7 @@ def scrap():
                 # title
                 data['title'] = section.find('h4', class_='my-0 p-sm-right job-tile-title').text.replace('\'', '').strip()
                 if 'Do not apply' in data['title']:
-                    print('do not apply')
+                    # print('do not apply')
                     continue
 
                 # description
@@ -229,8 +229,9 @@ def scrap():
     async def scrap_project_page():
         while True:
             if task_urls:
+                # print(len(task_urls))
                 task = task_urls.pop(0)
-                print('project page in progress', task['url'])
+  #              print('project page in progress', task['url'])
 
                 # html = get_html(url=task['url'])
                 # soup = BeautifulSoup(html, 'lxml')
@@ -437,7 +438,7 @@ def scrap():
 
 #                save_advanced_project_data_to_db(result)
                 bots.bot_send(result)
-                print('i was in bot_send')
+   #             print('i was in bot_send')
 
             await asyncio.sleep(0.1)
 

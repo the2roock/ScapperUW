@@ -12,8 +12,8 @@ URL_sender = 'https://api.telegram.org/bot{}/'.format(Config.bot_sender_token)
 
 
 def bot_send(data):
-    with open('json.json', 'w') as file:
-        json.dump(data, file, indent=2)
+#    with open('json.json', 'w') as file:
+#        json.dump(data, file, indent=2)
 
     with db_connection() as connection:
         with connection.cursor() as cursor:
@@ -24,7 +24,6 @@ def bot_send(data):
             for filter in filters:
                 if check_unfilters(data, filter['id']):
                     continue
-
                 sql_query = f"SELECT id_option, option_value FROM filter_elements WHERE id_filter={filter['id']}"
                 cursor.execute(sql_query)
                 filter_elements = [{'id_option': element[0], 'option_value': element[1]} for element in cursor.fetchall()]
@@ -72,9 +71,11 @@ def bot_send(data):
                         if cursor.fetchone()[0] == 1:
                             sql_query = f"SELECT option_value FROM filter_elements WHERE id_filter={filter['id']} AND id_option=(SELECT id FROM option_for_filter WHERE func='percent_skill')"
                             cursor.execute(sql_query)
-                            if percent_skill < float(cursor.fetchone()[0]):
-                                skill_flag = False
-
+                            try:
+                                if percent_skill < float(cursor.fetchone()[0]):
+                                    skill_flag = False
+                            except:
+                                print('SQL:\n\n' + sql_query + '\n\n')
 
                 if price_flag and skill_flag:
                     print(f"{filter['id_user']}: {filter['name']}")
@@ -129,10 +130,16 @@ def check_filter_country(value, filter):
 
 def send(chat_id, text):
     url = URL_sender + 'sendMessage'
-    data = {'chat_id': chat_id, 'text':text}
-    response = requests.post(url, json=data)
-    with open('response.json', 'w') as file:
-        json.dump(response.json(), file, indent=2)
+    data = {'chat_id': chat_id, 'text': text}
+    #print(f'Send message to {chat_id}')
+    try:
+        requests.post(url, json=data)
+    except:
+        print('#########################################################send message Error')
+        send(chat_id, text)
+#    response = requests.post(url, json=data)
+#    with open('response.json', 'w') as file:
+#        json.dump(response.json(), file, indent=2)
 
 
 def check_unfilters(data, id_filter):
@@ -156,91 +163,25 @@ def send_messages():
         with db_connection() as connection:
             with connection.cursor() as cursor:
                 sql_query = "SELECT id, id_filter, id_job, job_weight, percent_skill, time FROM messages WHERE status=0"
-                cursor.execute(sql_query)
+                try:
+                    cursor.execute(sql_query)
+                except Exception as e:
+                    with open('sql_log.txt', 'at') as file:
+                        file.write(f'{sql_query}\n{e}\n\n')
+                    continue
                 messages = [{'id': element[0], 'id_filter': element[1], 'id_job': element[2], 'job_weight': element[3], 'percent_skill': element[4], 'time': str(element[5]).split(' ')[-1].split(':')[:2]} for element in cursor.fetchall()]
                 for message in messages:
-
-
+#                    print('i in message')
                     sql_query = f"SELECT code FROM user WHERE id = (SELECT id_user from filters WHERE id = {message['id_filter']})"
                     cursor.execute(sql_query)
                     chat_id = cursor.fetchone()[0]
-
-
-                    sql_query = f"SELECT name FROM filters WHERE id={message['id_filter']}"
-                    cursor.execute(sql_query)
-                    filter_name = cursor.fetchone()[0]
-
-                    # filter name
-                    message_text = f"{filter_name}\n"
-
-                    # job weight
-                    if message['job_weight'] == 1:
-                        message_text += '🟩\n\n'
-                    elif message['job_weight'] == 2:
-                        message_text += '🟧🟧\n\n'
-                    elif message['job_weight'] == 3:
-                        message_text += '🟥🟥🟥\n\n'
-
-                    # link
-                    sql_query = f"SELECT link FROM job WHERE id={message['id_job']}"
-                    cursor.execute(sql_query)
-                    job_link = cursor.fetchone()[0]
-                    message_text += f"Link:\n\t{job_link}\n\n"
-
-                    # price
-                    sql_query = f"SELECT meta_value FROM meta_job WHERE meta_key='price' AND id_job={message['id_job']}"
-                    cursor.execute(sql_query)
-                    price = cursor.fetchone()[0]
-                    if 'True' in price:
-                        job_price = {
-                            'isFixed': True,
-                            'cost': float(price[1:-1].split(', ')[-1].split(': ')[-1])
-                        }
-                    else:
-                        job_price = {
-                            'isFixed': False,
-                            'cost': {
-                                'min': float(price[1:-1].split(', ')[1].split(': ')[-1][:-1]),
-                                'max': float(price[1:-1].split(', ')[2].split(': ')[-1][:-1])
-                            }
-                        }
-
-                    if job_price['isFixed']:
-                        message_text += 'Price:\n\t${}\n\n'.format(job_price['cost'])
-                    else:
-                        message_text += 'Price:\n\t${}-${}\n\n'.format(job_price['cost']['min'], job_price['cost']['max'])
-
-                    message_text += 'Skill rate:\t'
-
-                    if 80 <= message['percent_skill'] <= 100:
-                        message_text += '5'
-                    elif 65 <= message['percent_skill'] < 80:
-                        message_text += '4'
-                    elif 50 <= message['percent_skill'] < 65:
-                        message_text += '3'
-                    if 40 <= message['percent_skill'] < 50:
-                        message_text += '2'
-                    if 0 <= message['percent_skill'] < 40:
-                        message_text += '1'
-
-                    message_text += f"({round(message['percent_skill'], 1)}%)\n\n"
-
-                    sql_query = f"SELECT meta_value FROM meta_job WHERE id_job={message['id_job']} AND meta_key='skill'"
-                    cursor.execute(sql_query)
-                    for id in cursor.fetchone()[0][1:-1].split(', '):
-                        sql_query = f"SELECT slug FROM skill WHERE id={id}"
-                        try:
-                            cursor.execute(sql_query)
-                            message_text += '\t#{}\n'.format(cursor.fetchone()[0])
-                        except:
-                            pass
 
                     sql_query = f"SELECT EXISTS(SELECT id FROM filter_elements WHERE id_filter={message['id_filter']} AND id_option=6)"
                     cursor.execute(sql_query)
                     if cursor.fetchone()[0] == 0:
                         sql_query = f"UPDATE messages SET status=1 WHERE id={message['id']}"
                         cursor.execute(sql_query)
-                        send(chat_id=chat_id, text=message_text)
+                        send(chat_id=chat_id, text=create_message(message))
                         continue
 
                     sql_query = f"SELECT option_value FROM filter_elements WHERE id_filter={message['id_filter']} AND id_option=6"
@@ -254,15 +195,92 @@ def send_messages():
                     if minutes[1] < minutes[0]:
                         if time < minutes[0]:
                             if not (minutes[0] <= time+1440 <= minutes[1]+1440):
+ #                               print('dont send message {}'.format(work_time))
                                 continue
                     else:
                         if not (minutes[0] <= time <= minutes[1]):
+  #                          print('dont send message {}'.format(work_time))
+
                             continue
                     sql_query = f"UPDATE messages SET status=1 WHERE id={message['id']}"
                     cursor.execute(sql_query)
-                    send(chat_id=chat_id, text=message_text)
+                    send(chat_id=chat_id, text=create_message(message))
+   #                 print('message sended {}, {}'.format(chat_id, message['id']))
+                    connection.commit()
 
-            connection.commit()
+
+def create_message(message):
+    with db_connection().cursor() as cursor:
+        sql_query = f"SELECT name FROM filters WHERE id={message['id_filter']}"
+        cursor.execute(sql_query)
+        filter_name = cursor.fetchone()[0]
+
+        # filter name
+        message_text = f"{filter_name}\n"
+
+        # job weight
+        if message['job_weight'] == 1:
+            message_text += '🟩\n\n'
+        elif message['job_weight'] == 2:
+            message_text += '🟧🟧\n\n'
+        elif message['job_weight'] == 3:
+            message_text += '🟥🟥🟥\n\n'
+
+        # link
+        sql_query = f"SELECT link FROM job WHERE id={message['id_job']}"
+        cursor.execute(sql_query)
+        job_link = cursor.fetchone()[0]
+        message_text += f"Link:\n\t{job_link}\n\n"
+
+        # price
+        sql_query = f"SELECT meta_value FROM meta_job WHERE meta_key='price' AND id_job={message['id_job']}"
+        cursor.execute(sql_query)
+        price = cursor.fetchone()[0]
+        if 'True' in price:
+            job_price = {
+                'isFixed': True,
+                'cost': float(price[1:-1].split(', ')[-1].split(': ')[-1])
+            }
+        else:
+            job_price = {
+                'isFixed': False,
+                'cost': {
+                    'min': float(price[1:-1].split(', ')[1].split(': ')[-1][:-1]),
+                    'max': float(price[1:-1].split(', ')[2].split(': ')[-1][:-1])
+                }
+            }
+
+        if job_price['isFixed']:
+            message_text += 'Price:\n\t${}\n\n'.format(job_price['cost'])
+        else:
+            message_text += 'Price:\n\t${}-${}\n\n'.format(job_price['cost']['min'], job_price['cost']['max'])
+
+        message_text += 'Skill rate:\t'
+
+        if 80 <= message['percent_skill'] <= 100:
+            message_text += '5'
+        elif 65 <= message['percent_skill'] < 80:
+            message_text += '4'
+        elif 50 <= message['percent_skill'] < 65:
+            message_text += '3'
+        if 40 <= message['percent_skill'] < 50:
+            message_text += '2'
+        if 0 <= message['percent_skill'] < 40:
+            message_text += '1'
+
+        message_text += f"({round(message['percent_skill'], 1)}%)\n\n"
+
+        sql_query = f"SELECT meta_value FROM meta_job WHERE id_job={message['id_job']} AND meta_key='skill'"
+        cursor.execute(sql_query)
+        for id in cursor.fetchone()[0][1:-1].split(', '):
+            sql_query = f"SELECT slug FROM skill WHERE id={id}"
+            try:
+                cursor.execute(sql_query)
+                message_text += '\t#{}\n'.format(cursor.fetchone()[0])
+            except:
+                pass
+        return message_text
+
 
 
 def bot_config():
@@ -286,8 +304,8 @@ def bot_config():
         except:
             continue
 
-        with open('message.json', 'w') as file:
-            json.dump(r, file, indent=2)
+#        with open('message.json', 'w') as file:
+#            json.dump(r, file, indent=2)
 
 
         new_message_id = r['result'][-1]['update_id']
