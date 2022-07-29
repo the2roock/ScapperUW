@@ -8,7 +8,6 @@ from os import path
 
 from config import Config
 
-URL_sender = 'https://api.telegram.org/bot{}/'.format(Config.bot_sender_token)
 
 
 def bot_send(data):
@@ -128,12 +127,12 @@ def check_filter_country(value, filter):
         return True
     return False
 
-def send(chat_id, text):
-    url = URL_sender + 'sendMessage'
+def send(chat_id, text, bot_token=Config.bot_sender_token):
+    URL = 'https://api.telegram.org/bot{}/sendMessage'.format(bot_token)
     data = {'chat_id': chat_id, 'text': text}
     #print(f'Send message to {chat_id}')
     try:
-        requests.post(url, json=data)
+        requests.post(URL, json=data)
     except:
         print('#########################################################send message Error')
         send(chat_id, text)
@@ -159,6 +158,11 @@ def check_unfilters(data, id_filter):
 
 
 def send_messages():
+    bot_tokens = {
+        (5, 6)  : '5499240142:AAHY6BZGWUvf6XDx_KoHYNFndg-Y7P1Edwg',
+        (36, 37): '5572385094:AAHt85SqOs5ADc00WQtaUZBFgWBZKgrVeyo',
+        (38, )  : '5452251002:AAFw3l0w1eA9Uy-Jys8K2cUe7KmQJ803j10'
+    }
     while True:
         with db_connection() as connection:
             with connection.cursor() as cursor:
@@ -204,6 +208,11 @@ def send_messages():
                             continue
                     sql_query = f"UPDATE messages SET status=1 WHERE id={message['id']}"
                     cursor.execute(sql_query)
+                    for key in bot_tokens:
+                        if message['id_filter'] in key:
+                            send(chat_id=chat_id, text=create_message(message), bot_token=bot_tokens[key])
+                            break
+
                     send(chat_id=chat_id, text=create_message(message))
    #                 print('message sended {}, {}'.format(chat_id, message['id']))
                     connection.commit()
