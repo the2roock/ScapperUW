@@ -105,6 +105,9 @@ def save_project_first_data_to_db(datas):
                 sql_query = f"SELECT id FROM job WHERE link=\'{data['url']}\'"
                 cursor.execute(sql_query)
                 data['id'] = cursor.fetchone()[0]
+                with open('job_tracking.txt', 'at') as file:
+                    file.write(f'{datetime.now()} add job {data["id"]}')
+               # print(f"{datetime.now()} add job {data['id']}")
 
                 # append job to advanced scrapping
                 task_urls.append({'title': data['title'], 'url': data['url']})
@@ -223,13 +226,13 @@ def scrap():
 
             save_project_first_data_to_db(result)
 
-            await asyncio.sleep(90)
+            await asyncio.sleep(120)
 
 
     async def scrap_project_page():
         while True:
             if task_urls:
-                # print(len(task_urls))
+                print(len(task_urls))
                 task = task_urls.pop(0)
   #              print('project page in progress', task['url'])
 

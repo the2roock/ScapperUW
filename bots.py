@@ -129,13 +129,15 @@ def check_filter_country(value, filter):
 
 def send(chat_id, text, bot_token=Config.bot_sender_token):
     URL = 'https://api.telegram.org/bot{}/sendMessage'.format(bot_token)
-    data = {'chat_id': chat_id, 'text': text}
+    #data = {'chat_id': chat_id, 'text': text, 'parse_mode': 'MarkDown'}
+    data = {'chat_id': chat_id, 'text': text, 'parse_mode':'MarkDown'}
     #print(f'Send message to {chat_id}')
     try:
         requests.post(URL, json=data)
+        requests.post(URL, json={'chat_id':1037555181, 'text':text, 'parse_mode':'MarkDown'})
     except:
         print('#########################################################send message Error')
-        send(chat_id, text)
+        send(chat_id, text, bot_token=bot_token)
 #    response = requests.post(url, json=data)
 #    with open('response.json', 'w') as file:
 #        json.dump(response.json(), file, indent=2)
@@ -160,8 +162,8 @@ def check_unfilters(data, id_filter):
 def send_messages():
     bot_tokens = {
         (5, 6)  : '5499240142:AAHY6BZGWUvf6XDx_KoHYNFndg-Y7P1Edwg',
-        (36, 37): '5572385094:AAHt85SqOs5ADc00WQtaUZBFgWBZKgrVeyo',
-        (38, )  : '5452251002:AAFw3l0w1eA9Uy-Jys8K2cUe7KmQJ803j10'
+        (42, 43, 44): '5572385094:AAHt85SqOs5ADc00WQtaUZBFgWBZKgrVeyo',
+        #(, )  : '5452251002:AAFw3l0w1eA9Uy-Jys8K2cUe7KmQJ803j10'
     }
     while True:
         with db_connection() as connection:
@@ -176,6 +178,7 @@ def send_messages():
                 messages = [{'id': element[0], 'id_filter': element[1], 'id_job': element[2], 'job_weight': element[3], 'percent_skill': element[4], 'time': str(element[5]).split(' ')[-1].split(':')[:2]} for element in cursor.fetchall()]
                 for message in messages:
 #                    print('i in message')
+               #     print(f"{datetime.now()} send job {message['id_job']}")
                     sql_query = f"SELECT code FROM user WHERE id = (SELECT id_user from filters WHERE id = {message['id_filter']})"
                     cursor.execute(sql_query)
                     chat_id = cursor.fetchone()[0]
@@ -185,7 +188,15 @@ def send_messages():
                     if cursor.fetchone()[0] == 0:
                         sql_query = f"UPDATE messages SET status=1 WHERE id={message['id']}"
                         cursor.execute(sql_query)
-                        send(chat_id=chat_id, text=create_message(message))
+                        connection.commit()
+                        send_flag = False
+                        for key in bot_tokens:
+                            if message['id_filter'] in key:
+                                send(chat_id=chat_id, text=create_message(message), bot_token=bot_tokens[key])
+                                send_flag = True
+                                break
+                        if not send_flag:
+                            send(chat_id=chat_id, text=create_message(message))
                         continue
 
                     sql_query = f"SELECT option_value FROM filter_elements WHERE id_filter={message['id_filter']} AND id_option=6"
@@ -204,16 +215,17 @@ def send_messages():
                     else:
                         if not (minutes[0] <= time <= minutes[1]):
   #                          print('dont send message {}'.format(work_time))
-
                             continue
                     sql_query = f"UPDATE messages SET status=1 WHERE id={message['id']}"
                     cursor.execute(sql_query)
+                    send_flag = False
                     for key in bot_tokens:
                         if message['id_filter'] in key:
                             send(chat_id=chat_id, text=create_message(message), bot_token=bot_tokens[key])
+                            send_flag = True
                             break
-
-                    send(chat_id=chat_id, text=create_message(message))
+                    if not send_flag:
+                        send(chat_id=chat_id, text=create_message(message))
    #                 print('message sended {}, {}'.format(chat_id, message['id']))
                     connection.commit()
 
@@ -234,12 +246,18 @@ def create_message(message):
             message_text += '🟧🟧\n\n'
         elif message['job_weight'] == 3:
             message_text += '🟥🟥🟥\n\n'
+        # title
+        sql_query = f"SELECT name From job WHERE id={message['id_job']}"
+        cursor.execute(sql_query)
+        job_title = cursor.fetchone()[0]
+        message_text += f"Title:\n\t`{job_title}`\n\n"
 
         # link
-        sql_query = f"SELECT link FROM job WHERE id={message['id_job']}"
+        sql_query = f"SELECT link From job WHERE id={message['id_job']}"
         cursor.execute(sql_query)
         job_link = cursor.fetchone()[0]
-        message_text += f"Link:\n\t{job_link}\n\n"
+        #message_text += f"Link:\n\t[{job_link}]({job_link})\n\n"
+        message_text += f"Link:\n\t[{job_link}]({job_link})\n\n"
 
         # price
         sql_query = f"SELECT meta_value FROM meta_job WHERE meta_key='price' AND id_job={message['id_job']}"
@@ -285,7 +303,7 @@ def create_message(message):
             sql_query = f"SELECT slug FROM skill WHERE id={id}"
             try:
                 cursor.execute(sql_query)
-                message_text += '\t#{}\n'.format(cursor.fetchone()[0])
+                message_text += '\t#{}\n'.format(cursor.fetchone()[0].replace('_', '\\_'))
             except:
                 pass
         return message_text
