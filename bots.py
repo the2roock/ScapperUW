@@ -134,7 +134,7 @@ def send(chat_id, text, bot_token=Config.bot_sender_token):
     #print(f'Send message to {chat_id}')
     try:
         requests.post(URL, json=data)
-        requests.post(URL, json={'chat_id':1037555181, 'text':text, 'parse_mode':'MarkDown'})
+        # requests.post(URL, json={'chat_id':1037555181, 'text':text, 'parse_mode':'MarkDown'})
     except:
         print('#########################################################send message Error')
         send(chat_id, text, bot_token=bot_token)
